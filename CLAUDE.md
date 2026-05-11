@@ -13,7 +13,7 @@ dotnet run --project src/Claudelk.Cli -- <subcommand> [args]
 
 # Publish the production exe used by Claude Code hooks.
 dotnet publish src/Claudelk.Cli -c Release
-# Default output: src\Claudelk.Cli\bin\Release\<tfm>\publish\
+# Default output: .build\bin\Claudelk.Cli\Release\<tfm>\publish\
 # The committed csproj does NOT hardcode a PublishDir. Per-developer install
 # path lives in src\Claudelk.Cli\Claudelk.Cli.csproj.user (gitignored *.user).
 # Set <PublishDir> there to redirect publish at whatever path your Claude Code
