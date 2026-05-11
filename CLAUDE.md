@@ -20,7 +20,7 @@ dotnet publish src/Claudelk.Cli -c Release
 # hooks invoke. ~1.6s cold per command.
 ```
 
-CLI subcommands: `scan [--debug]`, `pair <id>`, `on`, `off`, `color <#RRGGBB>`, `blink <#RRGGBB> [pulses] [ms] [--end <#RRGGBB>]`, `brightness 0-100`, `speed 0-100`, `effect 0x80-0x9f`, `temp 0-100`. All commands accept `--device <id>` to override the saved default.
+CLI subcommands: `scan [--debug]`, `pair <id>`, `ensure [--color <#RRGGBB>]` (verify connection; reconnect/re-pair/power-on as needed, then set colour — default `#ffffff`; used by the `SessionStart` hook), `on`, `off`, `color <#RRGGBB>`, `blink <#RRGGBB> [pulses] [ms] [--end <#RRGGBB>]`, `brightness 0-100`, `speed 0-100`, `effect 0x80-0x9f`, `temp 0-100`. All commands accept `--device <id>` to override the saved default.
 
 ## Tests
 

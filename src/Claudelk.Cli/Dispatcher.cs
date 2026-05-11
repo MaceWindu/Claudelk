@@ -20,6 +20,7 @@ internal static class Dispatcher
             {
                 "scan" => await ScanAsync(args),
                 "pair" => await PairAsync(args),
+                "ensure" => await EnsureAsync(args),
                 "on" => await SimpleCommandAsync(args, d => d.TurnOnAsync()),
                 "off" => await SimpleCommandAsync(args, d => d.TurnOffAsync()),
                 "color" => await ColorAsync(args),
@@ -56,6 +57,8 @@ internal static class Dispatcher
             Commands:
               scan [--debug]             Discover nearby ELK-BLEDOM strips (--debug lists all BLE adverts)
               pair <device-id>           Save a device as the default target
+              ensure [--color <#RRGGBB>] Verify connection; reconnect/repair-pair/power-on if needed, then set colour
+                                         (default colour: #ffffff)
               on                         Power on the saved device
               off                        Power off the saved device
               color <#RRGGBB | R G B>    Set RGB color
@@ -143,6 +146,29 @@ internal static class Dispatcher
         config.LastDeviceName = device.Name;
         config.Save();
         Console.WriteLine($"Saved {device.Name} ({device.Id}) as default.");
+        return 0;
+    }
+
+    private static async Task<int> EnsureAsync(string[] args)
+    {
+        var colorHex = ExtractOption(args, "--color") ?? "#ffffff";
+        if (!TryParseHex(colorHex, out var r, out var g, out var b))
+        {
+            Console.Error.WriteLine("ensure: --color expects '#RRGGBB'.");
+            return 1;
+        }
+
+        using var device = await ResolveDeviceAsync(args);
+
+        // Restore the paired-list fast path if ConnectByIdAsync had to fall back
+        // to an advertisement scan. PairAsync is a no-op when already paired.
+        await device.PairWithWindowsAsync();
+
+        // Power on explicitly: this firmware silently drops SetColor writes that
+        // arrive while the strip is in the off state.
+        await device.TurnOnAsync();
+        await device.SetColorAsync(r, g, b);
+        Console.WriteLine($"Ensured {device.Name} ({device.Id}) on, colour #{r:X2}{g:X2}{b:X2}.");
         return 0;
     }
 
