@@ -1,0 +1,57 @@
+<Project>
+
+  <!-- Common props for every project in the repo. -->
+
+  <PropertyGroup Label="Target">
+    <!-- Windows-specific TFM is mandatory: with plain net10.0,
+         InTheHand.BluetoothLE selects its Linux/BlueZ backend and fails
+         at runtime with "No path specified for UNIX transport". -->
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <SupportedOSPlatformVersion>10.0.17763.0</SupportedOSPlatformVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Language">
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Strictness">
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningLevel>9999</WarningLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <AnalysisMode>AllEnabledByDefault</AnalysisMode>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+
+    <!-- Generate XML docs so IDE0005 (unused usings) runs on build. CS1591
+         (missing XML doc on public API) is left ON — we write doc comments. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- NU1903: Tmds.DBus is a Linux-only transitive of InTheHand.BluetoothLE;
+                 the advisory is not exploitable on Windows. -->
+    <NoWarn>$(NoWarn);NU1903</NoWarn>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Layout">
+    <!-- Centralise bin/obj/publish into one repo-root .build/ folder so src/ stays clean. -->
+    <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
+    <BaseOutputPath>$(RepoRoot).build\bin\$(MSBuildProjectName)\</BaseOutputPath>
+    <BaseIntermediateOutputPath>$(RepoRoot).build\obj\$(MSBuildProjectName)\</BaseIntermediateOutputPath>
+  </PropertyGroup>
+
+  <!-- Analyzer packages applied to every project. Versions live in
+       Directory.Packages.props. PrivateAssets=all prevents the analyzer
+       from leaking into downstream package references. -->
+  <ItemGroup Label="Analyzers">
+    <PackageReference Include="Meziantou.Analyzer">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="AsyncFixer">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+</Project>

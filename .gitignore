@@ -1,0 +1,13 @@
+## Build output
+bin/
+obj/
+.build/
+
+## Per-developer config
+.claude/settings.local.json
+*.user
+
+## IDE caches
+.vs/
+.vscode/
+.idea/

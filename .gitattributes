@@ -1,0 +1,13 @@
+# Windows-only repo — .editorconfig enforces CRLF on disk; this pins git to match.
+* text=auto eol=crlf
+
+# Binary files should not be touched.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.dll binary
+*.exe binary
+*.pdb binary

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>claudelk</AssemblyName>
+    <RootNamespace>Claudelk.Cli</RootNamespace>
+  </PropertyGroup>
+
+  <!-- Set <PublishDir> in Claudelk.Cli.csproj.user (gitignored) to point
+       publish at the path your Claude Code hooks invoke. Without that file,
+       publish goes to the default bin\<config>\<tfm>\publish\. -->
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\Claudelk.Core\Claudelk.Core.csproj" />
+  </ItemGroup>
+
+</Project>

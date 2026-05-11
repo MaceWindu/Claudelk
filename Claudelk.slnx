@@ -1,0 +1,27 @@
+<Solution>
+  <Folder Name="/.claude/">
+    <File Path=".claude/settings.local.json" />
+  </Folder>
+  <Folder Name="/.github/">
+    <File Path=".github/workflows/build.yml" />
+  </Folder>
+  <Folder Name="/build/">
+    <File Path=".editorconfig" />
+    <File Path=".gitattributes" />
+    <File Path=".gitignore" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+    <File Path="nuget.config" />
+  </Folder>
+  <Folder Name="/docs/">
+    <File Path="CLAUDE.md" />
+    <File Path="LICENSE" />
+    <File Path="NOTICE.md" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Claudelk.Cli/Claudelk.Cli.csproj" />
+    <Project Path="src/Claudelk.Core/Claudelk.Core.csproj" />
+  </Folder>
+</Solution>

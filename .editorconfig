@@ -1,0 +1,60 @@
+# Top-most EditorConfig file
+root = true
+
+[*]
+charset = utf-8
+end_of_line = crlf
+indent_style = space
+indent_size = 4
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{yml,yaml,json,md}]
+indent_size = 2
+
+[*.{props,targets,csproj,config,xml}]
+indent_size = 2
+
+[*.cs]
+# Treat all analyzer diagnostics as errors by default — matches
+# AnalysisMode=AllEnabledByDefault in Directory.Build.props. Only the
+# rules listed below are explicitly silenced because they fire on real
+# code in this repo and add noise without catching real bugs. Each
+# silence is auditable — feel free to flip back to `error` and fix.
+dotnet_analyzer_diagnostic.severity = error
+
+# Style preferences — taste, not correctness.
+dotnet_diagnostic.IDE0008.severity = none   # explicit type vs var
+dotnet_diagnostic.IDE0011.severity = none   # add braces to single-line if/foreach
+dotnet_diagnostic.IDE0021.severity = none   # block body for constructor
+dotnet_diagnostic.IDE0022.severity = none   # block body for method
+dotnet_diagnostic.IDE0046.severity = none   # simplify if to ternary
+dotnet_diagnostic.IDE0300.severity = none   # use collection expression
+
+# Style preferences and rules silenced as noise for a small CLI.
+dotnet_diagnostic.MA0004.severity = none    # ConfigureAwait(false) — no sync context in a console app
+# MA0165 — fires on plain string literals asking they be "made interpolated".
+# Meziantou's own default+none configs set this to silent/none — it's an
+# experimental rule the author doesn't enable globally. AllEnabledByDefault
+# is forcing it on; we override.
+dotnet_diagnostic.MA0165.severity = none
+dotnet_diagnostic.MA0136.severity = none    # raw-string EOL nag — help-text uses default EOL, fine
+
+# ----- Style preferences -----
+csharp_style_namespace_declarations = file_scoped:warning
+csharp_style_prefer_primary_constructors = true:suggestion
+csharp_style_var_for_built_in_types = true:silent
+csharp_style_var_when_type_is_apparent = true:silent
+csharp_new_line_before_open_brace = all
+csharp_indent_case_contents = true
+csharp_indent_switch_labels = true
+csharp_space_after_cast = false
+csharp_space_around_binary_operators = before_and_after
+csharp_using_directive_placement = outside_namespace:warning
+
+# Prefer a conventional Program.Main entry point — never auto-suggest
+# converting back to top-level statements (IDE0211).
+csharp_style_prefer_top_level_statements = false:warning
+
+# Require a blank line after a code block before the next statement (IDE2003).
+dotnet_style_allow_statement_immediately_after_block_experimental = false:warning

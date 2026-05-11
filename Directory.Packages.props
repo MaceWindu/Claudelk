@@ -1,0 +1,19 @@
+<Project>
+
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <!-- Runtime dependencies -->
+  <ItemGroup>
+    <PackageVersion Include="InTheHand.BluetoothLE" Version="4.0.44" />
+  </ItemGroup>
+
+  <!-- Analyzers (added to every project via Directory.Build.props) -->
+  <ItemGroup>
+    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.205" />
+    <PackageVersion Include="AsyncFixer" Version="1.6.0" />
+  </ItemGroup>
+
+</Project>
