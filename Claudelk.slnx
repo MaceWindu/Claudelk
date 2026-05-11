@@ -24,4 +24,7 @@
     <Project Path="src/Claudelk.Cli/Claudelk.Cli.csproj" />
     <Project Path="src/Claudelk.Core/Claudelk.Core.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Claudelk.Core.Tests/Claudelk.Core.Tests.csproj" />
+  </Folder>
 </Solution>

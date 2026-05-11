@@ -22,7 +22,23 @@ dotnet publish src/Claudelk.Cli -c Release
 
 CLI subcommands: `scan [--debug]`, `pair <id>`, `on`, `off`, `color <#RRGGBB>`, `blink <#RRGGBB> [pulses] [ms] [--end <#RRGGBB>]`, `brightness 0-100`, `speed 0-100`, `effect 0x80-0x9f`, `temp 0-100`. All commands accept `--device <id>` to override the saved default.
 
-No unit tests in the repo. Smoke-testing requires real ELK-BLEDOM hardware in range.
+## Tests
+
+```powershell
+# Build + run all NUnit tests (Claudelk.Core.Tests).
+dotnet test Claudelk.slnx
+```
+
+`tests/Claudelk.Core.Tests/` (NUnit 4 on Microsoft.Testing.Platform) covers:
+
+- The pure-protocol byte builders in `ElkBledomProtocol`.
+- `UserConfig` JSON round-trip + missing/malformed-file behaviour.
+- `ElkBledomScanner` name-prefix matching and host-availability propagation, via a `FakeBluetoothHost`.
+- `ElkBledomDevice` command byte streams and `ConnectByIdAsync` resolution (paired-list fast path → scan fallback → not-found error), via a `FakeBluetoothDevice`.
+
+The BLE abstraction layer (`IBluetoothHost` / `IBluetoothDevice` + the `InTheHand` adapters under `src/Claudelk.Core/Bluetooth/InTheHand/`) exists so the protocol-level code is testable; the InTheHand adapters themselves still need a real ELK-BLEDOM strip to smoke-test.
+
+The test project sets `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` so `dotnet test` invokes MTP rather than legacy VSTest. The output format is `Run tests:` / `Tests succeeded:` instead of VSTest's `Test run for...` / `Passed! - Failed: 0...`.
 
 ## Build infrastructure (repo-root files)
 

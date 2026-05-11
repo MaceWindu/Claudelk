@@ -1,10 +1,9 @@
-// BLE connection wrapper around InTheHand.BluetoothLE (32feet.NET) targeted at
-// ELK-BLEDOM strips. The Web-Bluetooth-style API surface (GATT) is documented at
-// https://github.com/inthehand/32feet.
+// Protocol-level wrapper around a connected BLE strip. Talks to the radio
+// through IBluetoothDevice / IBluetoothHost, so commands can be unit-tested
+// with a fake that records every WriteWithoutResponseAsync call.
 
+using Claudelk.Core.Bluetooth.InTheHand;
 using Claudelk.Core.Protocol;
-using InTheHand.Bluetooth;
-using IhBluetooth = InTheHand.Bluetooth.Bluetooth;
 
 namespace Claudelk.Core.Bluetooth;
 
@@ -14,47 +13,55 @@ namespace Claudelk.Core.Bluetooth;
 /// </summary>
 public sealed class ElkBledomDevice : IDisposable
 {
-    private readonly BluetoothDevice _device;
-    private GattCharacteristic? _writeCharacteristic;
+    private readonly IBluetoothDevice _device;
 
-    private ElkBledomDevice(BluetoothDevice device) => _device = device;
+    private ElkBledomDevice(IBluetoothDevice device) => _device = device;
 
     /// <summary>Opaque BLE device id (corresponds to the strip's MAC address on Windows).</summary>
     public string Id => _device.Id;
 
     /// <summary>Advertised device name, e.g. <c>ELK-BLEDOM</c>.</summary>
-    public string Name => _device.Name ?? string.Empty;
+    public string Name => _device.Name;
 
     /// <summary>True while the GATT connection is open.</summary>
-    public bool IsConnected => _device.Gatt.IsConnected;
+    public bool IsConnected => _device.IsConnected;
 
-    /// <summary>Connects to an already-discovered <paramref name="device"/> and resolves the write characteristic.</summary>
-    public static async Task<ElkBledomDevice> ConnectAsync(BluetoothDevice device)
+    /// <summary>Connects to an already-discovered <paramref name="device"/>.</summary>
+    public static async Task<ElkBledomDevice> ConnectAsync(IBluetoothDevice device)
     {
+        ArgumentNullException.ThrowIfNull(device);
         var wrapper = new ElkBledomDevice(device);
-        await wrapper.EnsureConnectedAsync();
+        await device.ConnectAsync();
         return wrapper;
     }
 
     /// <summary>
     /// Connects to the strip with the given <paramref name="id"/>. Tries the
-    /// Windows paired-devices list first (no advertisement scan) and falls back
+    /// host's paired-devices list first (no advertisement scan) and falls back
     /// to a brief scan if the device is not yet paired.
     /// </summary>
     /// <param name="id">BLE device id from <see cref="Id"/> / <see cref="ElkBledomScanner.ScanAsync"/>.</param>
     /// <param name="scanTimeout">How long to scan for as a fallback. Defaults to 3 seconds.</param>
+    /// <param name="host">Optional BLE host. Defaults to <see cref="InTheHandBluetoothHost"/>.</param>
     /// <exception cref="InvalidOperationException">No matching device was found.</exception>
-    public static async Task<ElkBledomDevice> ConnectByIdAsync(string id, TimeSpan? scanTimeout = null)
+    public static async Task<ElkBledomDevice> ConnectByIdAsync(
+        string id,
+        TimeSpan? scanTimeout = null,
+        IBluetoothHost? host = null)
     {
+        host ??= new InTheHandBluetoothHost();
+
         // Fast path: device already paired in Windows → no advertisement scan needed.
-        var paired = await IhBluetooth.GetPairedDevicesAsync();
+        var paired = await host.GetPairedDevicesAsync();
         var match = paired.FirstOrDefault(d =>
             string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
 
         if (match is null)
         {
             // Slow path: scan briefly in case the strip isn't paired yet.
-            var devices = await ElkBledomScanner.ScanAsync(scanTimeout ?? TimeSpan.FromSeconds(3));
+            var devices = await ElkBledomScanner.ScanAsync(
+                duration: scanTimeout ?? TimeSpan.FromSeconds(3),
+                host: host);
             match = devices.FirstOrDefault(d =>
                 string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
         }
@@ -67,30 +74,12 @@ public sealed class ElkBledomDevice : IDisposable
         return await ConnectAsync(match);
     }
 
-    private async Task EnsureConnectedAsync()
-    {
-        if (!_device.Gatt.IsConnected)
-            await _device.Gatt.ConnectAsync();
-
-        var service = await _device.Gatt.GetPrimaryServiceAsync(ElkBledomProtocol.ServiceUuid)
-            ?? throw new InvalidOperationException(
-                $"ELK-BLEDOM service {ElkBledomProtocol.ServiceUuid} not found on device.");
-
-        _writeCharacteristic = await service.GetCharacteristicAsync(ElkBledomProtocol.WriteCharacteristicUuid)
-            ?? throw new InvalidOperationException(
-                $"Write characteristic {ElkBledomProtocol.WriteCharacteristicUuid} not found.");
-    }
-
     /// <summary>
     /// Records the strip in Windows' paired-devices list so future
     /// <see cref="ConnectByIdAsync"/> calls hit the fast path.
     /// No-op if the device is already paired.
     /// </summary>
-    public async Task PairWithWindowsAsync()
-    {
-        if (!_device.IsPaired)
-            await _device.PairAsync();
-    }
+    public Task PairWithWindowsAsync() => _device.PairAsync();
 
     /// <summary>
     /// Pulses a colour on/off for <paramref name="pulses"/> cycles, then holds
@@ -115,9 +104,6 @@ public sealed class ElkBledomDevice : IDisposable
         (byte r, byte g, byte b)? endColor = null,
         CancellationToken ct = default)
     {
-        // Keep the strip powered on the whole time and just toggle the colour
-        // between bright and black. SetColor after a Power(off) is silently
-        // dropped on this firmware, which broke the previous implementation.
         await TurnOnAsync();
         for (var i = 0; i < pulses; i++)
         {
@@ -152,17 +138,12 @@ public sealed class ElkBledomDevice : IDisposable
     /// <summary>Sets warm/cold colour temperature (0 = warmest, 100 = coldest).</summary>
     public Task SetColorTemperatureAsync(int value) => WriteAsync(ElkBledomProtocol.ColorTemperature(value));
 
-    private Task WriteAsync(byte[] payload)
-    {
-        if (_writeCharacteristic is null)
-            throw new InvalidOperationException("Device is not connected.");
-        return _writeCharacteristic.WriteValueWithoutResponseAsync(payload);
-    }
+    private Task WriteAsync(byte[] payload) =>
+        _device.WriteWithoutResponseAsync(
+            ElkBledomProtocol.ServiceUuid,
+            ElkBledomProtocol.WriteCharacteristicUuid,
+            payload);
 
     /// <summary>Disconnects from the strip if currently connected.</summary>
-    public void Dispose()
-    {
-        if (_device.Gatt.IsConnected)
-            _device.Gatt.Disconnect();
-    }
+    public void Dispose() => _device.Dispose();
 }

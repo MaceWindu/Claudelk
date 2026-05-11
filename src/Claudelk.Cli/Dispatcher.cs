@@ -1,7 +1,6 @@
 using System.Globalization;
 using Claudelk.Core.Bluetooth;
 using Claudelk.Core.Configuration;
-using InTheHand.Bluetooth;
 
 namespace Claudelk.Cli;
 
@@ -84,7 +83,7 @@ internal static class Dispatcher
         var debug = args.Any(a => a is "--debug" or "-v");
         Console.WriteLine("Scanning for ELK-BLEDOM devices...");
 
-        var allSeen = new List<BluetoothDevice>();
+        var allSeen = new List<IBluetoothDevice>();
         var devices = await ElkBledomScanner.ScanAsync(
             onSeen: debug ? d => allSeen.Add(d) : null);
 
