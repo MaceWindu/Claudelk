@@ -64,6 +64,7 @@ claudelk scan              # add --debug to see all BLE adverts
 claudelk pair <device-id>
 
 # 3. Drive it.
+claudelk ensure                                # verify connection (re-pair / power-on if needed), then white
 claudelk on
 claudelk color "#ff8800"
 claudelk blink "#ff0000"                       # default 4×250ms, holds colour
@@ -98,11 +99,15 @@ waiting for your next message. Never turns off.
 | `Notification`     | `permission_prompt`  | red `#ff0000`, 5 s blink, ends on white      |
 | `Notification`     | `idle_prompt`        | yellow `#ffff00`, 3 s blink, ends on white   |
 
+`ensure` is used instead of plain `color` so a fallen-out Windows pairing or
+a powered-off strip is repaired on session start (reconnect → idempotent
+re-pair → power-on → set white).
+
 ```json
 "SessionStart": [{
   "hooks": [{
     "type": "command", "shell": "powershell", "async": true,
-    "command": "& 'C:\\path\\to\\claudelk.exe' color '#ffffff'"
+    "command": "& 'C:\\path\\to\\claudelk.exe' ensure"
   }]
 }],
 "Notification": [
