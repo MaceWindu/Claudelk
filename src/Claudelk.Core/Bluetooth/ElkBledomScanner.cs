@@ -1,11 +1,7 @@
-// BLE scanner for ELK-BLEDOM devices using InTheHand.BluetoothLE (32feet.NET).
-//
-// On Windows the BLE advertisement name is delivered in the scan response and
-// 32feet.NET's name-based filters are unreliable. We instead scan everything
-// (`AcceptAllDevices`) and filter in code by the well-known name prefixes.
+// BLE scanner for ELK-BLEDOM devices. Talks to the radio through IBluetoothHost
+// so the filtering logic can be unit-tested with a fake host.
 
-using InTheHand.Bluetooth;
-using IhBluetooth = InTheHand.Bluetooth.Bluetooth;
+using Claudelk.Core.Bluetooth.InTheHand;
 
 namespace Claudelk.Core.Bluetooth;
 
@@ -23,26 +19,27 @@ public static class ElkBledomScanner
     /// </summary>
     /// <param name="duration">How long to listen for advertisements. Defaults to 10 seconds.</param>
     /// <param name="onSeen">Optional callback invoked for every BLE device the radio saw, before filtering. Useful for diagnostics.</param>
+    /// <param name="host">Optional BLE host. Defaults to <see cref="InTheHandBluetoothHost"/>.</param>
     /// <param name="cancellationToken">Cancels the scan early.</param>
     /// <returns>The subset of nearby devices that look like ELK-BLEDOM strips.</returns>
     /// <exception cref="InvalidOperationException">Bluetooth is unavailable or disabled in Windows.</exception>
-    public static async Task<IReadOnlyList<BluetoothDevice>> ScanAsync(
+    public static async Task<IReadOnlyList<IBluetoothDevice>> ScanAsync(
         TimeSpan? duration = null,
-        Action<BluetoothDevice>? onSeen = null,
+        Action<IBluetoothDevice>? onSeen = null,
+        IBluetoothHost? host = null,
         CancellationToken cancellationToken = default)
     {
-        if (!await IhBluetooth.GetAvailabilityAsync())
+        host ??= new InTheHandBluetoothHost();
+
+        if (!await host.IsAvailableAsync())
             throw new InvalidOperationException(
                 "Bluetooth is not available. Enable Bluetooth in Windows Settings and try again.");
 
-        var options = new RequestDeviceOptions
-        {
-            AcceptAllDevices = true,
-            Timeout = duration ?? TimeSpan.FromSeconds(10),
-        };
-        var all = await IhBluetooth.ScanForDevicesAsync(options, cancellationToken);
+        var all = await host.ScanForDevicesAsync(
+            duration ?? TimeSpan.FromSeconds(10),
+            cancellationToken);
 
-        var matches = new List<BluetoothDevice>();
+        var matches = new List<IBluetoothDevice>();
         foreach (var d in all)
         {
             onSeen?.Invoke(d);
@@ -57,12 +54,22 @@ public static class ElkBledomScanner
     /// Returns true when the device's advertised name starts with one of the
     /// known ELK-BLEDOM-family prefixes.
     /// </summary>
-    public static bool IsLikelyElkBledom(BluetoothDevice device)
+    public static bool IsLikelyElkBledom(IBluetoothDevice device)
     {
-        var name = device.Name;
-        if (string.IsNullOrEmpty(name)) return false;
+        ArgumentNullException.ThrowIfNull(device);
+        return IsLikelyElkBledomName(device.Name);
+    }
+
+    /// <summary>
+    /// Returns true when <paramref name="advertisedName"/> starts with one of
+    /// the known ELK-BLEDOM-family prefixes (case-insensitive). Exposed as a
+    /// separate overload so it can be unit-tested without a device object.
+    /// </summary>
+    public static bool IsLikelyElkBledomName(string? advertisedName)
+    {
+        if (string.IsNullOrEmpty(advertisedName)) return false;
         foreach (var prefix in KnownPrefixes)
-            if (name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            if (advertisedName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
                 return true;
         return false;
     }

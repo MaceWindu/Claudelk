@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Keep doc-file generation enabled so IDE0005 (unused usings) still runs;
+         CS1591 is silenced via NoWarn below because tests aren't public API. -->
+
+    <!-- Use Microsoft.Testing.Platform (the new runner) instead of VSTest.
+         OutputType=Exe is required: MTP runs the test asm as its own process. -->
+    <OutputType>Exe</OutputType>
+    <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
+    <EnableMicrosoftTestingPlatform>true</EnableMicrosoftTestingPlatform>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!-- Test-only suppressions:
+         CS1591 — missing XML doc on public members; tests aren't documented API.
+         CA1707 — test method names use Method_Condition_Expectation underscores.
+         CA1812 — test fixtures are instantiated by NUnit via reflection.
+         CA1515 — public fixtures are conventional and harmless in a test asm.
+         CA1861 — inline array literals as method args are normal in tests. -->
+    <NoWarn>$(NoWarn);CS1591;CA1707;CA1812;CA1515;CA1861</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit3TestAdapter" />
+    <PackageReference Include="NUnit.Analyzers">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Claudelk.Core\Claudelk.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+  </ItemGroup>
+
+</Project>
