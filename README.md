@@ -38,7 +38,7 @@ dotnet build Claudelk.slnx
 
 # Production exe used by Claude Code hooks (~1.6 s cold per command):
 dotnet publish src/Claudelk.Cli -c Release
-# Default output: src\Claudelk.Cli\bin\Release\<tfm>\publish\
+# Default output: .build\bin\Claudelk.Cli\Release\<tfm>\publish\
 #
 # To install elsewhere (e.g. so Claude Code hooks can invoke a stable path),
 # create `src/Claudelk.Cli/Claudelk.Cli.csproj.user` — gitignored, picked up
