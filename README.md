@@ -190,6 +190,15 @@ Windows — pairing once during `claudelk pair` is what keeps every later
 command sub-2-second. Going below the ~1.6 s floor needs a daemon that
 holds the GATT connection open across invocations; that work is not done.
 
+### Timeout / hung-adapter safety
+
+Every command runs under a wall-clock watchdog. If the Windows Bluetooth
+stack wedges (BLE calls can otherwise block forever), `claudelk` prints an
+error to stderr and exits with code **124** instead of hanging — important
+because the hooks fire with `"async": true`, so a hung process would never
+be reaped and they would pile up in memory. The default ceiling is **15 s**;
+override it with the `CLAUDELK_TIMEOUT_SECONDS` environment variable.
+
 ## Roadmap
 
 1. ✅ Standalone CLI to scan, pair, and drive an ELK-BLEDOM strip.

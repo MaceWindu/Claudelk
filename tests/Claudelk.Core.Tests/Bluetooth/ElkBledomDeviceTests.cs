@@ -237,6 +237,35 @@ public sealed class ElkBledomDeviceTests
         Assert.That(device.Id, Is.EqualTo("BE:FF:F0:01:04:A8"));
     }
 
+    [Test]
+    public void ConnectByIdAsync_CancelsWhenHostHangs()
+    {
+        var host = new FakeBluetoothHost { Hang = true };
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // GetPairedDevicesAsync blocks forever on a hung adapter; the token must
+        // unblock the await rather than hang the whole call.
+        Assert.That(
+            async () => await ElkBledomDevice.ConnectByIdAsync("any-id", host: host, cancellationToken: cts.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+    }
+
+    [Test]
+    public async Task WriteCommands_CancelWhenDeviceHangs()
+    {
+        var fake = new FakeBluetoothDevice("id", "ELK-BLEDOM");
+        using var device = await ElkBledomDevice.ConnectAsync(fake);
+        fake.Hang = true;
+
+        using var cts = new CancellationTokenSource();
+        await cts.CancelAsync();
+
+        await Assert.ThatAsync(
+            async () => await device.SetColorAsync(0x10, 0x20, 0x30, cts.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+    }
+
     private static void AssertSingleWrite(FakeBluetoothDevice fake, byte[] expectedPayload)
     {
         Assert.That(fake.Writes, Has.Count.EqualTo(1));

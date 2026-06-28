@@ -25,18 +25,24 @@ internal sealed class FakeBluetoothDevice : IBluetoothDevice
     public int PairCount { get; private set; }
     public List<WriteRecord> Writes { get; } = [];
 
-    public Task PairAsync()
+    /// <summary>
+    /// When true, every async operation blocks forever (honouring the token),
+    /// simulating a wedged Bluetooth adapter so cancellation paths can be tested.
+    /// </summary>
+    public bool Hang { get; set; }
+
+    public async Task PairAsync(CancellationToken cancellationToken = default)
     {
+        if (Hang) await Task.Delay(Timeout.Infinite, cancellationToken);
         PairCount++;
         IsPaired = true;
-        return Task.CompletedTask;
     }
 
-    public Task ConnectAsync()
+    public async Task ConnectAsync(CancellationToken cancellationToken = default)
     {
+        if (Hang) await Task.Delay(Timeout.Infinite, cancellationToken);
         ConnectCount++;
         IsConnected = true;
-        return Task.CompletedTask;
     }
 
     public void Disconnect()
@@ -45,10 +51,10 @@ internal sealed class FakeBluetoothDevice : IBluetoothDevice
         IsConnected = false;
     }
 
-    public Task WriteWithoutResponseAsync(Guid serviceUuid, Guid characteristicUuid, byte[] data)
+    public async Task WriteWithoutResponseAsync(Guid serviceUuid, Guid characteristicUuid, byte[] data, CancellationToken cancellationToken = default)
     {
+        if (Hang) await Task.Delay(Timeout.Infinite, cancellationToken);
         Writes.Add(new WriteRecord(serviceUuid, characteristicUuid, [.. data]));
-        return Task.CompletedTask;
     }
 
     public void Dispose() => Disconnect();

@@ -15,12 +15,16 @@ namespace Claudelk.Core.Bluetooth.InTheHand;
 public sealed class InTheHandBluetoothHost : IBluetoothHost
 {
     /// <inheritdoc/>
-    public Task<bool> IsAvailableAsync() => IhBluetooth.GetAvailabilityAsync();
+    // InTheHand's GetAvailabilityAsync takes no token, so we bound the await with
+    // WaitAsync. Note: this only abandons the await — a wedged native call keeps
+    // running. The CLI's process-level watchdog (Program.Main) is the real backstop.
+    public Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default) =>
+        IhBluetooth.GetAvailabilityAsync().WaitAsync(cancellationToken);
 
     /// <inheritdoc/>
-    public async Task<IReadOnlyList<IBluetoothDevice>> GetPairedDevicesAsync()
+    public async Task<IReadOnlyList<IBluetoothDevice>> GetPairedDevicesAsync(CancellationToken cancellationToken = default)
     {
-        var paired = await IhBluetooth.GetPairedDevicesAsync();
+        var paired = await IhBluetooth.GetPairedDevicesAsync().WaitAsync(cancellationToken);
         return Wrap(paired);
     }
 
@@ -37,6 +41,8 @@ public sealed class InTheHandBluetoothHost : IBluetoothHost
             AcceptAllDevices = true,
             Timeout = timeout,
         };
+        // ScanForDevicesAsync is the one InTheHand method that takes a token, so
+        // the cancellation here genuinely propagates to the native scan.
         var devices = await IhBluetooth.ScanForDevicesAsync(options, cancellationToken);
         return Wrap(devices);
     }

@@ -31,7 +31,7 @@ public static class ElkBledomScanner
     {
         host ??= new InTheHandBluetoothHost();
 
-        if (!await host.IsAvailableAsync())
+        if (!await host.IsAvailableAsync(cancellationToken))
             throw new InvalidOperationException(
                 "Bluetooth is not available. Enable Bluetooth in Windows Settings and try again.");
 

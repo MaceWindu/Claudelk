@@ -26,10 +26,10 @@ public interface IBluetoothDevice : IDisposable
     bool IsConnected { get; }
 
     /// <summary>Adds the device to the OS-level paired list. No-op if already paired.</summary>
-    Task PairAsync();
+    Task PairAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Opens the GATT connection if it isn't already open.</summary>
-    Task ConnectAsync();
+    Task ConnectAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Closes the GATT connection if it's currently open.</summary>
     void Disconnect();
@@ -39,5 +39,5 @@ public interface IBluetoothDevice : IDisposable
     /// waiting for an acknowledgement. Implementations may discover and cache
     /// the characteristic lazily on first call.
     /// </summary>
-    Task WriteWithoutResponseAsync(Guid serviceUuid, Guid characteristicUuid, byte[] data);
+    Task WriteWithoutResponseAsync(Guid serviceUuid, Guid characteristicUuid, byte[] data, CancellationToken cancellationToken = default);
 }
