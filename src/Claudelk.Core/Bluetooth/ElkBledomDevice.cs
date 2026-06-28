@@ -27,11 +27,11 @@ public sealed class ElkBledomDevice : IDisposable
     public bool IsConnected => _device.IsConnected;
 
     /// <summary>Connects to an already-discovered <paramref name="device"/>.</summary>
-    public static async Task<ElkBledomDevice> ConnectAsync(IBluetoothDevice device)
+    public static async Task<ElkBledomDevice> ConnectAsync(IBluetoothDevice device, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(device);
         var wrapper = new ElkBledomDevice(device);
-        await device.ConnectAsync();
+        await device.ConnectAsync(cancellationToken);
         return wrapper;
     }
 
@@ -43,16 +43,18 @@ public sealed class ElkBledomDevice : IDisposable
     /// <param name="id">BLE device id from <see cref="Id"/> / <see cref="ElkBledomScanner.ScanAsync"/>.</param>
     /// <param name="scanTimeout">How long to scan for as a fallback. Defaults to 3 seconds.</param>
     /// <param name="host">Optional BLE host. Defaults to <see cref="InTheHandBluetoothHost"/>.</param>
+    /// <param name="cancellationToken">Cancels the paired-list query, fallback scan, and connect.</param>
     /// <exception cref="InvalidOperationException">No matching device was found.</exception>
     public static async Task<ElkBledomDevice> ConnectByIdAsync(
         string id,
         TimeSpan? scanTimeout = null,
-        IBluetoothHost? host = null)
+        IBluetoothHost? host = null,
+        CancellationToken cancellationToken = default)
     {
         host ??= new InTheHandBluetoothHost();
 
         // Fast path: device already paired in Windows → no advertisement scan needed.
-        var paired = await host.GetPairedDevicesAsync();
+        var paired = await host.GetPairedDevicesAsync(cancellationToken);
         var match = paired.FirstOrDefault(d =>
             string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
 
@@ -61,7 +63,8 @@ public sealed class ElkBledomDevice : IDisposable
             // Slow path: scan briefly in case the strip isn't paired yet.
             var devices = await ElkBledomScanner.ScanAsync(
                 duration: scanTimeout ?? TimeSpan.FromSeconds(3),
-                host: host);
+                host: host,
+                cancellationToken: cancellationToken);
             match = devices.FirstOrDefault(d =>
                 string.Equals(d.Id, id, StringComparison.OrdinalIgnoreCase));
         }
@@ -71,7 +74,7 @@ public sealed class ElkBledomDevice : IDisposable
                 $"No ELK-BLEDOM device with id '{id}' found. " +
                 "Pair it once in Windows Bluetooth settings for fast reconnects.");
 
-        return await ConnectAsync(match);
+        return await ConnectAsync(match, cancellationToken);
     }
 
     /// <summary>
@@ -79,7 +82,7 @@ public sealed class ElkBledomDevice : IDisposable
     /// <see cref="ConnectByIdAsync"/> calls hit the fast path.
     /// No-op if the device is already paired.
     /// </summary>
-    public Task PairWithWindowsAsync() => _device.PairAsync();
+    public Task PairWithWindowsAsync(CancellationToken cancellationToken = default) => _device.PairAsync(cancellationToken);
 
     /// <summary>
     /// Pulses a colour on/off for <paramref name="pulses"/> cycles, then holds
@@ -104,45 +107,46 @@ public sealed class ElkBledomDevice : IDisposable
         (byte r, byte g, byte b)? endColor = null,
         CancellationToken ct = default)
     {
-        await TurnOnAsync();
+        await TurnOnAsync(ct);
         for (var i = 0; i < pulses; i++)
         {
-            await SetColorAsync(r, g, b);
+            await SetColorAsync(r, g, b, ct);
             await Task.Delay(pulseMs, ct);
-            await SetColorAsync(0, 0, 0);
+            await SetColorAsync(0, 0, 0, ct);
             await Task.Delay(pulseMs, ct);
         }
 
         var (er, eg, eb) = endColor ?? (r, g, b);
-        await SetColorAsync(er, eg, eb);
+        await SetColorAsync(er, eg, eb, ct);
     }
 
     /// <summary>Powers the strip on.</summary>
-    public Task TurnOnAsync() => WriteAsync(ElkBledomProtocol.Power(on: true));
+    public Task TurnOnAsync(CancellationToken cancellationToken = default) => WriteAsync(ElkBledomProtocol.Power(on: true), cancellationToken);
 
     /// <summary>Powers the strip off.</summary>
-    public Task TurnOffAsync() => WriteAsync(ElkBledomProtocol.Power(on: false));
+    public Task TurnOffAsync(CancellationToken cancellationToken = default) => WriteAsync(ElkBledomProtocol.Power(on: false), cancellationToken);
 
     /// <summary>Sets a solid RGB colour (channels 0-255).</summary>
-    public Task SetColorAsync(byte r, byte g, byte b) => WriteAsync(ElkBledomProtocol.Color(r, g, b));
+    public Task SetColorAsync(byte r, byte g, byte b, CancellationToken cancellationToken = default) => WriteAsync(ElkBledomProtocol.Color(r, g, b), cancellationToken);
 
     /// <summary>Sets overall brightness in percent (0-100). Honoured only in solid-RGB mode.</summary>
-    public Task SetBrightnessAsync(int percent) => WriteAsync(ElkBledomProtocol.Brightness(percent));
+    public Task SetBrightnessAsync(int percent, CancellationToken cancellationToken = default) => WriteAsync(ElkBledomProtocol.Brightness(percent), cancellationToken);
 
     /// <summary>Sets the animation speed of the active built-in effect (0-100).</summary>
-    public Task SetEffectSpeedAsync(int percent) => WriteAsync(ElkBledomProtocol.EffectSpeed(percent));
+    public Task SetEffectSpeedAsync(int percent, CancellationToken cancellationToken = default) => WriteAsync(ElkBledomProtocol.EffectSpeed(percent), cancellationToken);
 
     /// <summary>Engages a built-in animation effect by code (0x80–0x9f).</summary>
-    public Task SetEffectAsync(int effectCode) => WriteAsync(ElkBledomProtocol.BuiltInEffect(effectCode));
+    public Task SetEffectAsync(int effectCode, CancellationToken cancellationToken = default) => WriteAsync(ElkBledomProtocol.BuiltInEffect(effectCode), cancellationToken);
 
     /// <summary>Sets warm/cold colour temperature (0 = warmest, 100 = coldest).</summary>
-    public Task SetColorTemperatureAsync(int value) => WriteAsync(ElkBledomProtocol.ColorTemperature(value));
+    public Task SetColorTemperatureAsync(int value, CancellationToken cancellationToken = default) => WriteAsync(ElkBledomProtocol.ColorTemperature(value), cancellationToken);
 
-    private Task WriteAsync(byte[] payload) =>
+    private Task WriteAsync(byte[] payload, CancellationToken cancellationToken) =>
         _device.WriteWithoutResponseAsync(
             ElkBledomProtocol.ServiceUuid,
             ElkBledomProtocol.WriteCharacteristicUuid,
-            payload);
+            payload,
+            cancellationToken);
 
     /// <summary>Disconnects from the strip if currently connected.</summary>
     public void Dispose() => _device.Dispose();

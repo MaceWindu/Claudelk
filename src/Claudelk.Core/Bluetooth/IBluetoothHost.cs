@@ -11,10 +11,10 @@ namespace Claudelk.Core.Bluetooth;
 public interface IBluetoothHost
 {
     /// <summary>Returns true when a usable Bluetooth radio is present and enabled.</summary>
-    Task<bool> IsAvailableAsync();
+    Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default);
 
     /// <summary>Returns the devices currently in the OS's paired-devices list.</summary>
-    Task<IReadOnlyList<IBluetoothDevice>> GetPairedDevicesAsync();
+    Task<IReadOnlyList<IBluetoothDevice>> GetPairedDevicesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Listens for BLE advertisements for <paramref name="timeout"/> and returns

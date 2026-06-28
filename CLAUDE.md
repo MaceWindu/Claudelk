@@ -38,13 +38,18 @@ dotnet test Claudelk.slnx
 
 The BLE abstraction layer (`IBluetoothHost` / `IBluetoothDevice` + the `InTheHand` adapters under `src/Claudelk.Core/Bluetooth/InTheHand/`) exists so the protocol-level code is testable; the InTheHand adapters themselves still need a real ELK-BLEDOM strip to smoke-test.
 
-The test project sets `<UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>` so `dotnet test` invokes MTP rather than legacy VSTest. The output format is `Run tests:` / `Tests succeeded:` instead of VSTest's `Test run for...` / `Passed! - Failed: 0...`.
+The test project runs on **NUnit's native Microsoft.Testing.Platform (MTP) runner** — no VSTest, no `Microsoft.NET.Test.Sdk`. The wiring (don't half-revert it):
+
+- `Claudelk.Core.Tests.csproj`: `<OutputType>Exe</OutputType>` + `<EnableNUnitRunner>true</EnableNUnitRunner>` (the runner ships inside `NUnit3TestAdapter` 5.0+; we're on 6.2.0).
+- `global.json` has a `"test": { "runner": "Microsoft.Testing.Platform" }` section — this is the .NET 10 SDK opt-in to **MTP mode** of `dotnet test`. Without it, the SDK 10 build errors with "Testing with VSTest target is no longer supported". The old `TestingPlatformDotnetTestSupport` / `UseMicrosoftTestingPlatformRunner` properties are the *legacy VSTest-bridge* opt-in and must NOT be re-added — they route back through VSTest and conflict with MTP mode.
+
+Output format is `Test run summary: Passed!` with `total/failed/succeeded`, not VSTest's `Passed! - Failed: 0...`. In MTP mode pass framework args directly (e.g. `dotnet test --report-trx`), no extra `--`.
 
 ## Build infrastructure (repo-root files)
 
 The csprojs are intentionally minimal — shared concerns live in repo-root MSBuild files. Edit these instead of duplicating settings per-project.
 
-- **`global.json`** — pins the .NET SDK to 10.0.x.
+- **`global.json`** — pins the .NET SDK to 10.0.x, and opts `dotnet test` into MTP mode via its `"test"` section (see the Tests section above).
 - **`Directory.Build.props`** — `TargetFramework` (Windows-specific TFM is mandatory, see gotcha #1 below), `Nullable`, `LangVersion`, **strict** analyzer settings (`TreatWarningsAsErrors`, `WarningLevel=9999`, `AnalysisMode=AllEnabledByDefault`, `AnalysisLevel=latest-recommended`, `EnforceCodeStyleInBuild`), `NoWarn=NU1903`, `BaseOutputPath`/`BaseIntermediateOutputPath` → `.build/`, and analyzer `PackageReference`s for **Meziantou.Analyzer** + **AsyncFixer**.
 - **`Directory.Packages.props`** — central package management; bare `<PackageReference Include="X" />` in csprojs resolves versions from here.
 - **`nuget.config`** — `nuget.org` only with package-source mapping locked to it.
@@ -85,6 +90,15 @@ The future Claude integration *daemon* (phase 3 in `README.md`) is not yet built
 Per one-shot command: ~0.3s .NET startup + ~1s cold GATT connect/service discovery + ~30ms write ≈ **~1.6s floor on the published exe**. Use the published exe (not `dotnet run`) when latency matters. To go below ~1.6s, the daemon (phase 3) is the only path — it would hold the GATT connection open across commands.
 
 `Dispatcher.ResolveDeviceAsync` skips advertisement scanning entirely when the device is in `GetPairedDevicesAsync()` — keep this fast path. Slowdowns usually mean the device fell out of Windows' paired list (re-pair via Settings or rerun `claudelk pair <id>`).
+
+## Hung-adapter watchdog (`Program.Main`)
+
+The InTheHand BLE calls mostly take no `CancellationToken` — verified against 4.0.44, only `ScanForDevicesAsync(options, ct)` does — and a wedged Windows Bluetooth stack blocks them forever. Because hooks run with `"async": true`, a hung process is never reaped and they accumulate in memory. Two layers guard against this:
+
+1. **Cooperative cancellation** — `Program.Main` creates a `CancellationTokenSource(timeout)` and threads its token through `Dispatcher.RunAsync` → `ElkBledomDevice`/`ElkBledomScanner` → the adapters. Token-less InTheHand calls are bounded with `Task.WaitAsync(ct)` in `InTheHand*` adapters. `Dispatcher` catches `OperationCanceledException` and returns exit code 124.
+2. **Hard watchdog** — `Program.Main` races the work against `Task.Delay(timeout + 2s grace)`; on timeout it prints to stderr and calls `Environment.Exit(124)`. This is the real backstop: `WaitAsync` abandons the *await* but the orphaned native call keeps running, so only a process exit guarantees no zombie. Don't remove it.
+
+Timeout default is **15 s**, overridable via the `CLAUDELK_TIMEOUT_SECONDS` env var (min 1 s). Keep `WaitAsync(ct)` on every new BLE call you add to the adapters.
 
 ## Attribution
 

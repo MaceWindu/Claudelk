@@ -16,19 +16,31 @@ internal sealed class FakeBluetoothHost : IBluetoothHost
     public int PairedQueryCount { get; private set; }
     public TimeSpan? LastScanTimeout { get; private set; }
 
-    public Task<bool> IsAvailableAsync() => Task.FromResult(Available);
+    /// <summary>
+    /// When true, every async operation blocks forever (honouring the token),
+    /// simulating a wedged Bluetooth adapter so cancellation paths can be tested.
+    /// </summary>
+    public bool Hang { get; set; }
 
-    public Task<IReadOnlyList<IBluetoothDevice>> GetPairedDevicesAsync()
+    public async Task<bool> IsAvailableAsync(CancellationToken cancellationToken = default)
     {
-        PairedQueryCount++;
-        return Task.FromResult<IReadOnlyList<IBluetoothDevice>>([.. Paired]);
+        if (Hang) await Task.Delay(Timeout.Infinite, cancellationToken);
+        return Available;
     }
 
-    public Task<IReadOnlyList<IBluetoothDevice>> ScanForDevicesAsync(
+    public async Task<IReadOnlyList<IBluetoothDevice>> GetPairedDevicesAsync(CancellationToken cancellationToken = default)
+    {
+        if (Hang) await Task.Delay(Timeout.Infinite, cancellationToken);
+        PairedQueryCount++;
+        return [.. Paired];
+    }
+
+    public async Task<IReadOnlyList<IBluetoothDevice>> ScanForDevicesAsync(
         TimeSpan timeout, CancellationToken cancellationToken = default)
     {
+        if (Hang) await Task.Delay(Timeout.Infinite, cancellationToken);
         ScanCount++;
         LastScanTimeout = timeout;
-        return Task.FromResult<IReadOnlyList<IBluetoothDevice>>([.. Advertised]);
+        return [.. Advertised];
     }
 }

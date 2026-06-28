@@ -17,13 +17,18 @@ namespace Claudelk.Core.Protocol;
 /// </summary>
 public static class ElkBledomProtocol
 {
-    /// <summary>GATT service UUID exposed by an ELK-BLEDOM strip.</summary>
-    public static readonly Guid ServiceUuid =
-        Guid.Parse("0000fff0-0000-1000-8000-00805f9b34fb");
+    // Component constructors (not Guid.Parse) so the UUIDs are built at compile
+    // time without runtime string parsing (MA0176). These are the standard
+    // 16-bit Bluetooth UUIDs 0xFFF0 / 0xFFF3 in the BLE base-UUID layout
+    // (xxxxxxxx-0000-1000-8000-00805f9b34fb).
 
-    /// <summary>GATT characteristic UUID that accepts command packets (write-without-response).</summary>
+    /// <summary>GATT service UUID exposed by an ELK-BLEDOM strip (<c>0000fff0-…</c>).</summary>
+    public static readonly Guid ServiceUuid =
+        new(0x0000fff0, 0x0000, 0x1000, 0x80, 0x00, 0x00, 0x80, 0x5f, 0x9b, 0x34, 0xfb);
+
+    /// <summary>GATT characteristic UUID that accepts command packets (write-without-response, <c>0000fff3-…</c>).</summary>
     public static readonly Guid WriteCharacteristicUuid =
-        Guid.Parse("0000fff3-0000-1000-8000-00805f9b34fb");
+        new(0x0000fff3, 0x0000, 0x1000, 0x80, 0x00, 0x00, 0x80, 0x5f, 0x9b, 0x34, 0xfb);
 
     private const byte Prefix = 0x7e;
     private const byte Suffix = 0xef;
@@ -67,7 +72,9 @@ public static class ElkBledomProtocol
             throw new ArgumentOutOfRangeException(nameof(value), "Color temperature must be 0-100.");
         // Firmware accepts colour-temperature bytes in the range 128–138 (warmest → coldest);
         // map our 0–100 input linearly onto that span.
-        var byteValue = (byte)(128 + (int)Math.Round(value * 10.0 / 100));
+        // ToEven preserves the original default-rounding behaviour; specified
+        // explicitly to satisfy MA0193 (require a MidpointRounding argument).
+        var byteValue = (byte)(128 + (int)Math.Round(value * 10.0 / 100, MidpointRounding.ToEven));
         return new byte[] { Prefix, 0x00, 0x03, byteValue, 0x02, 0x00, 0x00, 0x00, Suffix };
     }
 }

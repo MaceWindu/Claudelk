@@ -39,6 +39,11 @@ dotnet_diagnostic.MA0004.severity = none    # ConfigureAwait(false) — no sync 
 # is forcing it on; we override.
 dotnet_diagnostic.MA0165.severity = none
 dotnet_diagnostic.MA0136.severity = none    # raw-string EOL nag — help-text uses default EOL, fine
+dotnet_diagnostic.MA0127.severity = none    # prefers string.Equals over `x is "a" or "b"`; the is-pattern is idiomatic and clearer for arg dispatch
+# MA0185 — calls string.Create(InvariantCulture, $"…") redundant when all args
+# are culture-invariant. The explicit-culture formatting in Dispatcher is a
+# deliberate, documented choice (see CLAUDE.md), so we keep it and silence this.
+dotnet_diagnostic.MA0185.severity = none
 
 # ----- Style preferences -----
 csharp_style_namespace_declarations = file_scoped:warning

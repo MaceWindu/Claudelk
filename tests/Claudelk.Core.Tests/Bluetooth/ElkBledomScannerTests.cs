@@ -109,4 +109,18 @@ public sealed class ElkBledomScannerTests
             async () => await ElkBledomScanner.ScanAsync(host: host),
             Throws.InvalidOperationException);
     }
+
+    [Test]
+    public void ScanAsync_CancelsWhenHostHangs()
+    {
+        var host = new FakeBluetoothHost { Hang = true };
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // A wedged adapter blocks the availability check forever; the token must
+        // surface as a cancellation rather than hanging the scan.
+        Assert.That(
+            async () => await ElkBledomScanner.ScanAsync(host: host, cancellationToken: cts.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+    }
 }

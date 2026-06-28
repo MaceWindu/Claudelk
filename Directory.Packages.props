@@ -12,16 +12,17 @@
 
   <!-- Analyzers (added to every project via Directory.Build.props) -->
   <ItemGroup>
-    <PackageVersion Include="Meziantou.Analyzer" Version="2.0.205" />
-    <PackageVersion Include="AsyncFixer" Version="1.6.0" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.117" />
+    <PackageVersion Include="AsyncFixer" Version="2.1.0" />
   </ItemGroup>
 
-  <!-- Test dependencies (referenced from test projects only) -->
+  <!-- Test dependencies (referenced from test projects only).
+       Native Microsoft.Testing.Platform via NUnit3TestAdapter 5.0+ (EnableNUnitRunner);
+       no Microsoft.NET.Test.Sdk / VSTest bridge. -->
   <ItemGroup>
-    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
-    <PackageVersion Include="NUnit" Version="4.6.0" />
+    <PackageVersion Include="NUnit" Version="4.6.1" />
     <PackageVersion Include="NUnit3TestAdapter" Version="6.2.0" />
-    <PackageVersion Include="NUnit.Analyzers" Version="4.13.0" />
+    <PackageVersion Include="NUnit.Analyzers" Version="4.14.0" />
   </ItemGroup>
 
 </Project>

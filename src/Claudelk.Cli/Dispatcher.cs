@@ -6,7 +6,7 @@ namespace Claudelk.Cli;
 
 internal static class Dispatcher
 {
-    public static async Task<int> RunAsync(string[] args)
+    public static async Task<int> RunAsync(string[] args, CancellationToken cancellationToken = default)
     {
         if (args.Length == 0 || args[0] is "-h" or "--help" or "help")
         {
@@ -18,19 +18,26 @@ internal static class Dispatcher
         {
             return args[0].ToLowerInvariant() switch
             {
-                "scan" => await ScanAsync(args),
-                "pair" => await PairAsync(args),
-                "ensure" => await EnsureAsync(args),
-                "on" => await SimpleCommandAsync(args, d => d.TurnOnAsync()),
-                "off" => await SimpleCommandAsync(args, d => d.TurnOffAsync()),
-                "color" => await ColorAsync(args),
-                "blink" => await BlinkAsync(args),
-                "brightness" => await BrightnessAsync(args),
-                "speed" => await SpeedAsync(args),
-                "effect" => await EffectAsync(args),
-                "temp" => await TempAsync(args),
+                "scan" => await ScanAsync(args, cancellationToken),
+                "pair" => await PairAsync(args, cancellationToken),
+                "ensure" => await EnsureAsync(args, cancellationToken),
+                "on" => await SimpleCommandAsync(args, (d, ct) => d.TurnOnAsync(ct), cancellationToken),
+                "off" => await SimpleCommandAsync(args, (d, ct) => d.TurnOffAsync(ct), cancellationToken),
+                "color" => await ColorAsync(args, cancellationToken),
+                "blink" => await BlinkAsync(args, cancellationToken),
+                "brightness" => await BrightnessAsync(args, cancellationToken),
+                "speed" => await SpeedAsync(args, cancellationToken),
+                "effect" => await EffectAsync(args, cancellationToken),
+                "temp" => await TempAsync(args, cancellationToken),
                 _ => UnknownCommand(args[0]),
             };
+        }
+        catch (OperationCanceledException)
+        {
+            // The watchdog (Program.Main) prints the timeout message and force-exits;
+            // if cancellation surfaces here first, report it the same way.
+            Console.Error.WriteLine("Error: operation cancelled (timed out — the Bluetooth adapter may be hung).");
+            return 124;
         }
         catch (Exception ex)
         {
@@ -81,14 +88,15 @@ internal static class Dispatcher
             """);
     }
 
-    private static async Task<int> ScanAsync(string[] args)
+    private static async Task<int> ScanAsync(string[] args, CancellationToken cancellationToken)
     {
         var debug = args.Any(a => a is "--debug" or "-v");
         Console.WriteLine("Scanning for ELK-BLEDOM devices...");
 
         var allSeen = new List<IBluetoothDevice>();
         var devices = await ElkBledomScanner.ScanAsync(
-            onSeen: debug ? d => allSeen.Add(d) : null);
+            onSeen: debug ? d => allSeen.Add(d) : null,
+            cancellationToken: cancellationToken);
 
         if (debug)
         {
@@ -119,7 +127,7 @@ internal static class Dispatcher
         return 0;
     }
 
-    private static async Task<int> PairAsync(string[] args)
+    private static async Task<int> PairAsync(string[] args, CancellationToken cancellationToken)
     {
         if (args.Length < 2)
         {
@@ -129,10 +137,10 @@ internal static class Dispatcher
 
         var id = args[1];
         Console.WriteLine($"Connecting to {id} to verify...");
-        using var device = await ElkBledomDevice.ConnectByIdAsync(id);
+        using var device = await ElkBledomDevice.ConnectByIdAsync(id, cancellationToken: cancellationToken);
         try
         {
-            await device.PairWithWindowsAsync();
+            await device.PairWithWindowsAsync(cancellationToken);
             Console.WriteLine("Registered with Windows (fast reconnects enabled).");
         }
         catch (Exception ex)
@@ -149,7 +157,7 @@ internal static class Dispatcher
         return 0;
     }
 
-    private static async Task<int> EnsureAsync(string[] args)
+    private static async Task<int> EnsureAsync(string[] args, CancellationToken cancellationToken)
     {
         var colorHex = ExtractOption(args, "--color") ?? "#ffffff";
         if (!TryParseHex(colorHex, out var r, out var g, out var b))
@@ -158,28 +166,28 @@ internal static class Dispatcher
             return 1;
         }
 
-        using var device = await ResolveDeviceAsync(args);
+        using var device = await ResolveDeviceAsync(args, cancellationToken);
 
         // Restore the paired-list fast path if ConnectByIdAsync had to fall back
         // to an advertisement scan. PairAsync is a no-op when already paired.
-        await device.PairWithWindowsAsync();
+        await device.PairWithWindowsAsync(cancellationToken);
 
         // Power on explicitly: this firmware silently drops SetColor writes that
         // arrive while the strip is in the off state.
-        await device.TurnOnAsync();
-        await device.SetColorAsync(r, g, b);
+        await device.TurnOnAsync(cancellationToken);
+        await device.SetColorAsync(r, g, b, cancellationToken);
         Console.WriteLine($"Ensured {device.Name} ({device.Id}) on, colour #{r:X2}{g:X2}{b:X2}.");
         return 0;
     }
 
-    private static async Task<int> SimpleCommandAsync(string[] args, Func<ElkBledomDevice, Task> action)
+    private static async Task<int> SimpleCommandAsync(string[] args, Func<ElkBledomDevice, CancellationToken, Task> action, CancellationToken cancellationToken)
     {
-        using var device = await ResolveDeviceAsync(args);
-        await action(device);
+        using var device = await ResolveDeviceAsync(args, cancellationToken);
+        await action(device, cancellationToken);
         return 0;
     }
 
-    private static async Task<int> ColorAsync(string[] args)
+    private static async Task<int> ColorAsync(string[] args, CancellationToken cancellationToken)
     {
         var rest = RemoveOption(args, "--device");
         if (rest.Length < 2)
@@ -206,13 +214,13 @@ internal static class Dispatcher
             return 1;
         }
 
-        using var device = await ResolveDeviceAsync(args);
-        await device.SetColorAsync(r, g, b);
+        using var device = await ResolveDeviceAsync(args, cancellationToken);
+        await device.SetColorAsync(r, g, b, cancellationToken);
         Console.WriteLine($"Color set to #{r:X2}{g:X2}{b:X2}.");
         return 0;
     }
 
-    private static async Task<int> BlinkAsync(string[] args)
+    private static async Task<int> BlinkAsync(string[] args, CancellationToken cancellationToken)
     {
         // Read --end's value from the original args before RemoveOption deletes the flag.
         var endHex = ExtractOption(args, "--end");
@@ -239,8 +247,8 @@ internal static class Dispatcher
             endColor = (er, eg, eb);
         }
 
-        using var device = await ResolveDeviceAsync(args);
-        await device.BlinkAsync(r, g, b, pulses, pulseMs, endColor);
+        using var device = await ResolveDeviceAsync(args, cancellationToken);
+        await device.BlinkAsync(r, g, b, pulses, pulseMs, endColor, cancellationToken);
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Blinked #{r:X2}{g:X2}{b:X2} {pulses}x") +
                           (endColor is null ? "." : string.Create(CultureInfo.InvariantCulture, $", ended on #{endColor.Value.r:X2}{endColor.Value.g:X2}{endColor.Value.b:X2}.")));
         return 0;
@@ -275,7 +283,7 @@ internal static class Dispatcher
         return [.. result];
     }
 
-    private static async Task<int> BrightnessAsync(string[] args)
+    private static async Task<int> BrightnessAsync(string[] args, CancellationToken cancellationToken)
     {
         var rest = RemoveOption(args, "--device");
         if (rest.Length < 2 || !int.TryParse(rest[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var percent))
@@ -284,13 +292,13 @@ internal static class Dispatcher
             return 1;
         }
 
-        using var device = await ResolveDeviceAsync(args);
-        await device.SetBrightnessAsync(percent);
+        using var device = await ResolveDeviceAsync(args, cancellationToken);
+        await device.SetBrightnessAsync(percent, cancellationToken);
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Brightness set to {percent}%."));
         return 0;
     }
 
-    private static async Task<int> SpeedAsync(string[] args)
+    private static async Task<int> SpeedAsync(string[] args, CancellationToken cancellationToken)
     {
         var rest = RemoveOption(args, "--device");
         if (rest.Length < 2 || !int.TryParse(rest[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var percent))
@@ -299,13 +307,13 @@ internal static class Dispatcher
             return 1;
         }
 
-        using var device = await ResolveDeviceAsync(args);
-        await device.SetEffectSpeedAsync(percent);
+        using var device = await ResolveDeviceAsync(args, cancellationToken);
+        await device.SetEffectSpeedAsync(percent, cancellationToken);
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Effect speed set to {percent}%."));
         return 0;
     }
 
-    private static async Task<int> EffectAsync(string[] args)
+    private static async Task<int> EffectAsync(string[] args, CancellationToken cancellationToken)
     {
         var rest = RemoveOption(args, "--device");
         if (rest.Length < 2)
@@ -325,13 +333,13 @@ internal static class Dispatcher
             return 1;
         }
 
-        using var device = await ResolveDeviceAsync(args);
-        await device.SetEffectAsync(code);
+        using var device = await ResolveDeviceAsync(args, cancellationToken);
+        await device.SetEffectAsync(code, cancellationToken);
         Console.WriteLine($"Effect 0x{code:X2} engaged.");
         return 0;
     }
 
-    private static async Task<int> TempAsync(string[] args)
+    private static async Task<int> TempAsync(string[] args, CancellationToken cancellationToken)
     {
         var rest = RemoveOption(args, "--device");
         if (rest.Length < 2 || !int.TryParse(rest[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var value))
@@ -340,24 +348,24 @@ internal static class Dispatcher
             return 1;
         }
 
-        using var device = await ResolveDeviceAsync(args);
-        await device.SetColorTemperatureAsync(value);
+        using var device = await ResolveDeviceAsync(args, cancellationToken);
+        await device.SetColorTemperatureAsync(value, cancellationToken);
         Console.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Color temperature set to {value}."));
         return 0;
     }
 
-    private static Task<ElkBledomDevice> ResolveDeviceAsync(string[] args)
+    private static Task<ElkBledomDevice> ResolveDeviceAsync(string[] args, CancellationToken cancellationToken)
     {
         var explicitId = ExtractOption(args, "--device");
         if (!string.IsNullOrEmpty(explicitId))
-            return ElkBledomDevice.ConnectByIdAsync(explicitId);
+            return ElkBledomDevice.ConnectByIdAsync(explicitId, cancellationToken: cancellationToken);
 
         var config = UserConfig.Load();
         if (string.IsNullOrEmpty(config.LastDeviceId))
             throw new InvalidOperationException(
                 "No device paired. Run 'claudelk scan' then 'claudelk pair <id>' first.");
 
-        return ElkBledomDevice.ConnectByIdAsync(config.LastDeviceId);
+        return ElkBledomDevice.ConnectByIdAsync(config.LastDeviceId, cancellationToken: cancellationToken);
     }
 
     private static string? ExtractOption(string[] args, string name)
