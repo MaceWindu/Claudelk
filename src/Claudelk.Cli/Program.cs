@@ -20,7 +20,9 @@ internal static class Program
     private const int DefaultTimeoutSeconds = 15;
     private const int MinTimeoutSeconds = 1;
     private static readonly TimeSpan HardKillGrace = TimeSpan.FromSeconds(2);
-    private const int TimeoutExitCode = 124; // conventional "timed out" exit code
+
+    /// <summary>Exit code reported when a command times out (conventional "timed out" code).</summary>
+    internal const int TimeoutExitCode = 124;
 
     private static async Task<int> Main(string[] args)
     {

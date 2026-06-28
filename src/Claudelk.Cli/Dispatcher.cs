@@ -37,7 +37,7 @@ internal static class Dispatcher
             // The watchdog (Program.Main) prints the timeout message and force-exits;
             // if cancellation surfaces here first, report it the same way.
             Console.Error.WriteLine("Error: operation cancelled (timed out — the Bluetooth adapter may be hung).");
-            return 124;
+            return Program.TimeoutExitCode;
         }
         catch (Exception ex)
         {
