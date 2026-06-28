@@ -23,4 +23,6 @@ jobs:
         run: dotnet build Claudelk.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test Claudelk.slnx --configuration Release --no-build --logger "console;verbosity=normal"
+        # MTP mode (global.json "test" runner): pass the solution via --solution and
+        # drop the VSTest-only --logger option, which MTP rejects with exit code 5.
+        run: dotnet test --solution Claudelk.slnx --configuration Release --no-build
