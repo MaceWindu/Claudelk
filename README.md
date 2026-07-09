@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/claudelk-256.png" alt="Claudelk" width="180" />
+</p>
+
 # Claudelk
 
 Drive an **ELK-BLEDOM** Bluetooth LED strip from .NET, and (optionally) wire it

@@ -4,6 +4,7 @@
     <OutputType>Exe</OutputType>
     <AssemblyName>claudelk</AssemblyName>
     <RootNamespace>Claudelk.Cli</RootNamespace>
+    <ApplicationIcon>..\..\assets\claudelk.ico</ApplicationIcon>
   </PropertyGroup>
 
   <!-- Set <PublishDir> in Claudelk.Cli.csproj.user (gitignored) to point
